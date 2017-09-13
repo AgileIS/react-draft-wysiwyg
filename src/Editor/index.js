@@ -10,14 +10,7 @@ import {
   convertFromRaw,
   CompositeDecorator,
 } from 'draft-js';
-import {
-  changeDepth,
-  handleNewLine,
-  blockRenderMap,
-  getCustomStyleMap,
-  extractInlineStyle,
-  getSelectedBlocksType,
-} from 'draftjs-utils';
+import * as draftjsUtils from 'draftjs-utils';
 import classNames from 'classnames';
 import ModalHandler from '../event-handler/modals';
 import FocusHandler from '../event-handler/focus';
@@ -52,7 +45,7 @@ export default class WysiwygEditor extends Component {
     spellCheck: PropTypes.bool, // eslint-disable-line react/no-unused-prop-types
     stripPastedStyles: PropTypes.bool, // eslint-disable-line react/no-unused-prop-types
     toolbar: PropTypes.object,
-    toolbarCustomButtons: PropTypes.array,
+    toolbarCustomButtons: PropTypes.object,
     toolbarClassName: PropTypes.string,
     toolbarHidden: PropTypes.bool,
     locale: PropTypes.string,
@@ -111,13 +104,13 @@ export default class WysiwygEditor extends Component {
       onChange: this.onChange,
     }, props.customBlockRenderFunc);
     this.editorProps = this.filterEditorProps(props);
-    this.customStyleMap = getCustomStyleMap();
+    this.customStyleMap = draftjsUtils.getCustomStyleMap();
   }
 
   componentWillMount(): void {
     this.compositeDecorator = this.getCompositeDecorator();
     const editorState = this.createEditorState(this.compositeDecorator);
-    extractInlineStyle(editorState);
+    draftjsUtils.extractInlineStyle(editorState);
     this.setState({
       editorState,
     });
@@ -156,11 +149,11 @@ export default class WysiwygEditor extends Component {
     if (newState.editorState &&
       (this.props.editorState && this.props.editorState.getCurrentContent().getBlockMap().size) !==
       (newState.editorState && newState.editorState.getCurrentContent().getBlockMap().size)) {
-      extractInlineStyle(newState.editorState);
+      draftjsUtils.extractInlineStyle(newState.editorState);
     }
     this.setState(newState);
     this.editorProps = this.filterEditorProps(props);
-    this.customStyleMap = getCustomStyleMap();
+    this.customStyleMap = draftjsUtils.getCustomStyleMap();
   }
 
   onEditorBlur: Function = (): void => {
@@ -186,7 +179,7 @@ export default class WysiwygEditor extends Component {
   onTab: Function = (event): boolean => {
     const { onTab } = this.props;
     if (!onTab || !onTab(event)) {
-      const editorState = changeDepth(this.state.editorState, event.shiftKey ? -1 : 1, 4);
+      const editorState = draftjsUtils.changeDepth(this.state.editorState, event.shiftKey ? -1 : 1, 4);
       if (editorState && editorState !== this.state.editorState) {
         this.onChange(editorState);
         event.preventDefault();
@@ -217,7 +210,7 @@ export default class WysiwygEditor extends Component {
   onChange: Function = (editorState: Object): void => {
     const { readOnly, onEditorStateChange } = this.props;
     if (!readOnly &&
-      !(getSelectedBlocksType(editorState) === 'atomic' &&
+      !(draftjsUtils.getSelectedBlocksType(editorState) === 'atomic' &&
       editorState.getSelection().isCollapsed)) {
       if (onEditorStateChange) {
         onEditorStateChange(editorState, this.props.wrapperId);
@@ -351,7 +344,7 @@ export default class WysiwygEditor extends Component {
     if (SuggestionHandler.isOpen()) {
       return true;
     }
-    const editorState = handleNewLine(this.state.editorState, event);
+    const editorState = draftjsUtils.handleNewLine(this.state.editorState, event);
     if (editorState) {
       this.onChange(editorState);
       return true;
@@ -395,6 +388,7 @@ export default class WysiwygEditor extends Component {
     } = this.props;
 
     const controlProps = {
+      draftjsUtils: draftjsUtils,
       modalHandler: this.modalHandler,
       editorState,
       onChange: this.onChange,
@@ -420,15 +414,19 @@ export default class WysiwygEditor extends Component {
           onFocus={this.onToolbarFocus}
         >
           {toolbar.options.map((opt, index) => {
-            const Control = Controls[opt];
-            const config = toolbar[opt];
-            if (opt === 'image' && uploadCallback) {
-              config.uploadCallback = uploadCallback;
-            }
-            return <Control key={index} {...controlProps} config={config} />;
+            if(toolbarCustomButtons && toolbarCustomButtons[opt]){
+              return React.cloneElement(toolbarCustomButtons[opt], { key: index, ...controlProps });            
+            }else{
+              const Control = Controls[opt]
+              if(Control){
+                const config = toolbar[opt];
+                if (opt === 'image' && uploadCallback) {
+                  config.uploadCallback = uploadCallback;
+                }
+                return <Control key={index} {...controlProps} config={config} />;
+              }
+            }        
           })}
-          {toolbarCustomButtons && toolbarCustomButtons.map((button, index) =>
-            React.cloneElement(button, { key: index, ...controlProps }))}
         </div>
         <div
           ref={this.setWrapperReference}
@@ -448,13 +446,13 @@ export default class WysiwygEditor extends Component {
             editorState={editorState}
             onChange={this.onChange}
             blockStyleFn={blockStyleFn}
-            customStyleMap={getCustomStyleMap()}
+            customStyleMap={draftjsUtils.getCustomStyleMap()}
             handleReturn={this.handleReturn}
             handlePastedText={this.handlePastedText}
             blockRendererFn={this.blockRendererFn}
             handleKeyCommand={this.handleKeyCommand}
             ariaLabel={ariaLabel || 'rdw-editor'}
-            blockRenderMap={blockRenderMap}
+            blockRenderMap={draftjsUtils.blockRenderMap}
             {...this.editorProps}
           />
         </div>
